@@ -1,0 +1,121 @@
+<div class="wbms-page">
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Presentation Tool</span>
+      <h2>Indicator Simulator</h2>
+    </div>
+    <button class="btn btn-outline-primary" type="button" (click)="loadStatus()" [disabled]="busy">
+      <i class="ti ti-refresh"></i>
+      Refresh
+    </button>
+  </div>
+
+  @if (message) {
+    <div class="alert" [ngClass]="'alert-' + messageType">{{ message }}</div>
+  }
+  @if (busyAction) {
+    <div class="alert alert-info">{{ busyAction }}</div>
+  }
+
+  <app-card cardTitle="Simulator Control">
+    <div class="status-strip">
+      <div>
+        <span>Status</span>
+        <strong>{{ simulator?.running ? 'Online' : 'Offline' }}</strong>
+      </div>
+      <div>
+        <span>Vehicle Cycle</span>
+        <strong>{{ simulator?.vehicleCycleRunning ? 'Running' : 'Stopped' }}</strong>
+      </div>
+      <div>
+        <span>Endpoint</span>
+        <strong>127.0.0.1:{{ simulator?.port || simulatorPort }}</strong>
+      </div>
+      <div>
+        <span>Connected Clients</span>
+        <strong>{{ simulator?.clients || 0 }}</strong>
+      </div>
+    </div>
+
+    <div class="control-grid">
+      <label>
+        <span>TCP Port</span>
+        <input class="form-control" type="number" min="1" max="65535" [(ngModel)]="simulatorPort" [disabled]="simulator?.running || busy" />
+      </label>
+
+      <label>
+        <span>Weight kg</span>
+        <input class="form-control" type="number" [(ngModel)]="simulatorWeight" [disabled]="busy" />
+      </label>
+
+      <label>
+        <span>Dashboard / Stream Type</span>
+        <select class="form-select" [(ngModel)]="simulatorMode" (ngModelChange)="onSimulatorModeChange($event)" [disabled]="simulator?.running || busy">
+          <option value="SINGLE_CELL">Single cell</option>
+          <option value="MULTI_CELL">Multi-cell</option>
+        </select>
+      </label>
+
+      <label><span>Preferred Indicator Profile</span><select class="form-select" [(ngModel)]="simulatorProfileUuid" (ngModelChange)="onProfileChange($event)" [disabled]="simulator?.running || busy"><option value="">Manual simulator format</option>@for (profile of indicatorProfiles; track profile.uuid) { <option [value]="profile.uuid">{{ profile.profileName }}</option> }</select></label>
+
+      @if (simulatorMode === 'MULTI_CELL') {
+        <label class="cell-values-control">
+          <span>Cell / Axle Values (kg)</span>
+          <input class="form-control" type="text" [(ngModel)]="simulatorCellWeights" [disabled]="busy" placeholder="565,300,600,100" />
+        </label>
+      }
+
+      <label class="framing-check"><input class="form-check-input" type="checkbox" [(ngModel)]="simulatorFramingEnabled" (ngModelChange)="onFramingChange()" [disabled]="simulator?.running || busy" /><span>Send framed data (START + weights + separator + END)</span></label>
+      @if (simulatorFramingEnabled) {
+        <label><span>Start bytes (HEX)</span><input class="form-control" [(ngModel)]="simulatorStartBytes" [disabled]="simulator?.running || busy" /></label>
+        <label><span>End bytes (HEX)</span><input class="form-control" [(ngModel)]="simulatorEndBytes" [disabled]="simulator?.running || busy" /></label>
+        <label><span>Weight separator</span><input class="form-control" [(ngModel)]="simulatorSeparator" [disabled]="simulator?.running || busy" /></label>
+      }
+
+      <label class="stable-check">
+        <input class="form-check-input" type="checkbox" [(ngModel)]="simulatorStable" [disabled]="busy" />
+        Stable
+      </label>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-success" type="button" (click)="startSimulator()" [disabled]="!canStart">
+        <i class="ti ti-player-play"></i>
+        {{ busyAction === 'Starting simulator...' ? 'Starting...' : 'Start Simulator' }}
+      </button>
+      <button class="btn btn-outline-primary" type="button" (click)="setSimulatorWeight()" [disabled]="!canControlRunningSimulator">
+        <i class="ti ti-scale"></i>
+        {{ busyAction === 'Updating simulator weight...' ? 'Updating...' : 'Set Weight' }}
+      </button>
+      <button class="btn btn-outline-warning" type="button" (click)="runDemo()" [disabled]="!canControlRunningSimulator">
+        <i class="ti ti-route"></i>
+        {{ busyAction === 'Starting vehicle cycle...' ? 'Starting...' : 'Vehicle Cycle' }}
+      </button>
+      <button class="btn btn-outline-secondary" type="button" (click)="zero()" [disabled]="!canControlRunningSimulator">
+        <i class="ti ti-refresh-dot"></i>
+        Zero
+      </button>
+      <button class="btn btn-outline-danger" type="button" (click)="stopSimulator()" [disabled]="!canStop">
+        <i class="ti ti-player-stop"></i>
+        {{ busyAction === 'Stopping simulator...' ? 'Stopping...' : 'Stop' }}
+      </button>
+    </div>
+  </app-card>
+
+  <app-card cardTitle="WBMS Device Setup">
+    <div class="setup-grid">
+      <div>
+        <span>Connection Type</span>
+        <strong>TCP/IP</strong>
+      </div>
+      <div>
+        <span>IP Address</span>
+        <strong>127.0.0.1</strong>
+      </div>
+      <div>
+        <span>Port</span>
+        <strong>{{ simulator?.port || simulatorPort }}</strong>
+      </div>
+    </div>
+  </app-card>
+</div>

@@ -1,0 +1,128 @@
+<div class="wbms-page">
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Operations</span>
+      <h2>Live Capture</h2>
+    </div>
+    <div class="button-row">
+      <button class="btn btn-outline-primary" type="button" (click)="loadDevices()">
+        <i class="ti ti-refresh"></i>
+        Refresh
+      </button>
+      <button class="btn btn-outline-secondary" type="button" (click)="loadSerialPorts()">
+        <i class="ti ti-plug-connected"></i>
+        COM Ports
+      </button>
+    </div>
+  </div>
+
+  @if (message) {
+    <div class="alert" [ngClass]="'alert-' + messageType">{{ message }}</div>
+  }
+
+  <div class="capture-grid">
+    <app-card cardTitle="Capture Control">
+      <form [formGroup]="captureForm" class="capture-form">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Registered Device</label>
+            <select class="form-select" formControlName="deviceUuid" (change)="useDevice(captureForm.controls.deviceUuid.value)">
+              <option value="">Use active device or choose one</option>
+              @for (device of devices; track device.uuid) {
+                <option [value]="device.uuid">{{ device.deviceId }} - {{ device.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Connection Type</label>
+            <select class="form-select" formControlName="connectionType">
+              <option value="SERIAL">SERIAL</option>
+              <option value="TCP">TCP</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Wait Seconds</label>
+            <input class="form-control" type="number" formControlName="waitSeconds" min="1" />
+          </div>
+
+          @if (isSerial) {
+            <div class="col-12">
+              <label class="form-label">Serial Port</label>
+              <select class="form-select" formControlName="serialPort">
+                <option value="">Select COM port</option>
+                @for (port of serialPorts; track port) {
+                  <option [value]="port">{{ port }}</option>
+                }
+              </select>
+            </div>
+          } @else {
+            <div class="col-md-8">
+              <label class="form-label">TCP Host/IP</label>
+              <input class="form-control" formControlName="tcpHost" placeholder="192.168.1.50" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">TCP Port</label>
+              <input class="form-control" type="number" formControlName="tcpPort" />
+            </div>
+          }
+        </div>
+
+        <div class="control-panel">
+          <button class="btn btn-primary" type="button" (click)="startActive()">
+            <i class="ti ti-player-play"></i>
+            Start Active
+          </button>
+          <button class="btn btn-success" type="button" (click)="startSelected()">
+            <i class="ti ti-broadcast"></i>
+            Start Selected
+          </button>
+          <button class="btn btn-warning" type="button" (click)="testConnection()">
+            <i class="ti ti-stethoscope"></i>
+            Test
+          </button>
+          <button class="btn btn-outline-danger" type="button" (click)="stopCapture()">
+            <i class="ti ti-player-stop"></i>
+            Stop
+          </button>
+        </div>
+      </form>
+    </app-card>
+
+    <app-card cardTitle="Live Status">
+      <div class="status-panel">
+        <div class="capture-state" [class.running]="runningDeviceName">
+          <i class="ti" [ngClass]="runningDeviceName ? 'ti-broadcast' : 'ti-circle-off'"></i>
+          <div>
+            <strong>{{ runningDeviceName || 'No active stream started from this screen' }}</strong>
+            <span>Backend logs currently show the live weight values.</span>
+          </div>
+        </div>
+
+        @if (testResult) {
+          <div class="test-result">
+            <div>
+              <span>Connection</span>
+              <strong>{{ testResult.connected ? 'Connected' : 'Not connected' }}</strong>
+            </div>
+            <div>
+              <span>Data</span>
+              <strong>{{ testResult.dataReceived ? 'Received' : 'No sample data' }}</strong>
+            </div>
+            @if (testResult.sampleData) {
+              <pre>{{ testResult.sampleData }}</pre>
+            }
+            @if (testResult.rawHex) {
+              <small>Raw bytes: {{ testResult.rawHex }}</small>
+            }
+            @if (testResult.parsedWeightKg !== undefined) {
+              <small>Parsed weight: {{ testResult.parsedWeightKg }} kg</small>
+            }
+            @if (testResult.parsedCellWeightsKg?.length) {
+              <small>Parsed cells: {{ testResult.parsedCellWeightsKg?.join(', ') }}</small>
+            }
+          </div>
+        }
+      </div>
+    </app-card>
+  </div>
+</div>

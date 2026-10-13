@@ -1,0 +1,17 @@
+<div class="m-header">
+  <a [routerLink]="['/dashboard/']" class="b-brand wbms-brand">
+    <span class="brand-mark">W</span>
+    <span class="brand-text">
+      <strong>WBMS</strong>
+      <small>TANROADS</small>
+    </span>
+  </a>
+  <!-- ======= Menu collapse Icon ===== -->
+  <div class="pc-h-item">
+    <a href="javascript:void(0)" class="pc-head-link head-link-secondary m-0 mobile-menu"
+      [ngClass]="{ on: navCollapsed() }" id="sidebar-hide mobile-collapse" (click)="navCollapse()"
+      title="Click to Menu Collapse">
+      <i class="ti ti-menu-2"></i>
+    </a>
+  </div>
+</div>

@@ -1,0 +1,213 @@
+<div class="wbms-page">
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">TANROADS WBMS</span>
+      <h2>Operational Dashboard</h2>
+    </div>
+    <button class="btn btn-outline-primary" type="button" (click)="refreshDashboard()" [disabled]="loading || capturing">
+      <i class="ti ti-refresh"></i>
+      Refresh
+    </button>
+  </div>
+
+  @if (message) {
+    <div class="alert" [ngClass]="'alert-' + messageType">{{ message }}</div>
+  }
+
+  <section class="weight-console">
+    @if (isMultiCellDashboard) {
+      <div class="multi-cell-console">
+        <div class="console-label">Live Axle / Cell Readings</div>
+        <div class="cell-card-grid">
+          @for (cellWeight of displayCellWeightsKg; track $index) {
+            <div class="cell-card">
+              <span>Axle {{ $index + 1 }}</span>
+              <strong>{{ cellWeight | number: '1.0-2' }} <small>kg</small></strong>
+              <em>Live</em>
+            </div>
+          }
+        </div>
+        <div class="bvr-total">
+          <span>BVR Total Weight</span>
+          <strong>{{ liveBvrKg | number: '1.0-2' }} <small>kg</small></strong>
+        </div>
+        <div class="reading-meta">
+          <strong>{{ liveReading?.deviceId }} - {{ liveReading?.deviceName }}</strong>
+          <span>Live update {{ liveReading?.capturedAt | date: 'medium' }}</span>
+          <code>{{ liveReading?.rawLine }}</code>
+        </div>
+      </div>
+    } @else {
+    <div class="console-main">
+      <div class="console-label">Current Weight Reading</div>
+      <div class="weight-value">
+        @if (liveReading) {
+          {{ liveReading.weightKg | number: '1.0-2' }}
+        } @else {
+          ---.--
+        }
+        <span>kg</span>
+      </div>
+      <div class="reading-meta">
+        @if (liveReading) {
+          <strong>{{ liveReading.deviceId }} - {{ liveReading.deviceName }}</strong>
+          <span>Live update {{ liveReading.capturedAt | date: 'medium' }}</span>
+          <code>{{ liveReading.rawLine }}</code>
+        } @else {
+          <strong>No live reading</strong>
+          <span>Connect a device and wait for incoming weight data.</span>
+        }
+      </div>
+    </div>
+    }
+
+    <div class="capture-panel">
+      <label class="form-label">Capture Device</label>
+      <select class="form-select" [(ngModel)]="selectedDeviceUuid">
+        <option value="">Use latest active device</option>
+        @for (device of devices; track device.uuid) {
+          <option [value]="device.uuid">{{ device.deviceId }} - {{ device.name }}</option>
+        }
+      </select>
+
+      <button class="btn btn-primary capture-button" type="button" (click)="captureReading()" [disabled]="capturing">
+        <i class="ti ti-scale"></i>
+        {{ capturing ? 'Capturing...' : 'Capture Weight' }}
+      </button>
+
+      <div class="selected-device">
+        @if (selectedDevice) {
+          <span>{{ selectedDevice.connectionType }}</span>
+          <strong>
+            @if (selectedDevice.connectionType === 'SERIAL') {
+              {{ selectedDevice.serialPort || '-' }}
+            } @else {
+              {{ selectedDevice.tcpHost || '-' }}:{{ selectedDevice.tcpPort || '-' }}
+            }
+          </strong>
+        } @else {
+          <span>Active device mode</span>
+          <strong>Backend selects the active device</strong>
+        }
+      </div>
+    </div>
+  </section>
+
+  <div class="metric-grid">
+    <app-card cardTitle="Registered Devices">
+      <div class="metric">
+        <span>{{ devices.length }}</span>
+        <small>Total configured weighbridge indicators</small>
+      </div>
+    </app-card>
+    <app-card cardTitle="Connected Devices">
+      <div class="metric metric-success">
+        <span>{{ activeCount }}</span>
+        <small>Currently connected to WBMS</small>
+      </div>
+    </app-card>
+    <app-card cardTitle="Serial Devices">
+      <div class="metric metric-info">
+        <span>{{ serialCount }}</span>
+        <small>COM port connections</small>
+      </div>
+    </app-card>
+    <app-card cardTitle="TCP Devices">
+      <div class="metric metric-warning">
+        <span>{{ tcpCount }}</span>
+        <small>Network indicator connections</small>
+      </div>
+    </app-card>
+  </div>
+
+  <app-card cardTitle="Recent Device Configuration">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle wbms-table">
+        <thead>
+          <tr>
+            <th>Device</th>
+            <th>Name</th>
+            <th>Connection Type</th>
+            <th>Status</th>
+            <th class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (device of devices; track device.uuid) {
+            <tr>
+              <td class="fw-semibold">{{ device.deviceId }}</td>
+              <td>{{ device.name }}</td>
+              <td>
+                <span class="endpoint-pill" [ngClass]="device.connectionType === 'SERIAL' ? 'serial' : 'tcp'">
+                  {{ deviceEndpoint(device) }}
+                </span>
+              </td>
+              <td>
+                <span class="status-dot" [class.on]="isConnected(device)"></span>
+                {{ isConnected(device) ? 'Active' : 'Inactive' }}
+              </td>
+              <td class="text-end">
+                <button
+                  class="btn btn-sm"
+                  type="button"
+                  [disabled]="!!actionDeviceUuid"
+                  [ngClass]="isConnected(device) ? 'btn-outline-danger' : 'btn-outline-success'"
+                  (click)="connectDevice(device)"
+                >
+                  <i class="ti" [ngClass]="isConnected(device) ? 'ti-plug-off' : 'ti-plug-connected'"></i>
+                  @if (actionDeviceUuid === device.uuid) {
+                    Working...
+                  } @else {
+                    {{ isConnected(device) ? 'Disconnect' : 'Connect' }}
+                  }
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="empty-state">No devices found. Register one from Device Registry.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </app-card>
+
+  <app-card cardTitle="Recent Captured Readings">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle wbms-table readings-table">
+        <thead>
+          <tr>
+            <th>Captured At</th>
+            <th>Device</th>
+            <th class="text-end">Weight</th>
+            <th>Raw Reading</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (reading of readings; track reading.uuid) {
+            <tr>
+              <td>
+                <span class="timestamp">{{ reading.capturedAt | date: 'medium' }}</span>
+              </td>
+              <td>
+                <strong>{{ reading.deviceId }}</strong>
+                <span>{{ reading.deviceName }}</span>
+              </td>
+              <td class="text-end">
+                <span class="reading-weight">{{ reading.weightKg | number: '1.0-2' }} kg</span>
+              </td>
+              <td>
+                <code class="raw-reading">{{ reading.rawLine }}</code>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="empty-state">No captured readings yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </app-card>
+</div>

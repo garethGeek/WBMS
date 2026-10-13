@@ -1,0 +1,261 @@
+<div class="wbms-page">
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Configuration</span>
+      <h2>Device Registry</h2>
+    </div>
+    <button class="btn btn-outline-secondary" type="button" (click)="loadSerialPorts()">
+      <i class="ti ti-plug-connected"></i>
+      Scan COM Ports
+    </button>
+  </div>
+
+  @if (message) {
+    <div class="alert" [ngClass]="'alert-' + messageType">{{ message }}</div>
+  }
+
+  <div class="registry-grid">
+    <app-card [cardTitle]="formTitle">
+      <form [formGroup]="deviceForm" (ngSubmit)="saveDevice()" class="device-form">
+        <div class="form-section">
+          <div class="section-title">
+            <span>Device Identity</span>
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label">Custom Indicator Profile (optional)</label>
+            <select class="form-select" formControlName="indicatorProfileUuid">
+              <option value="">Use selected built-in protocol</option>
+              @for (profile of indicatorProfiles; track profile.uuid) { <option [value]="profile.uuid">{{ profile.profileName }}{{ profile.model ? ' (' + profile.model + ')' : '' }}</option> }
+            </select>
+            <small class="text-muted">A saved profile supplies the tested framing and extraction settings for this device.</small>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">Device ID</label>
+              <input class="form-control" formControlName="deviceId" placeholder="WB-01" />
+            </div>
+            <div class="col-md-7">
+              <label class="form-label">Device Name</label>
+              <input class="form-control" formControlName="name" placeholder="Gate A Scale" />
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch switch-row">
+                <div>
+                  <label class="form-check-label" for="activeSwitch">Active for capture</label>
+                  <span>Available for dashboard connection and weight capture.</span>
+                </div>
+                <input class="form-check-input" type="checkbox" role="switch" formControlName="active" id="activeSwitch" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-title">
+            <span>Connection</span>
+          </div>
+
+          <div class="connection-toggle" role="group" aria-label="Connection type">
+            @for (type of connectionTypes; track type) {
+              <input class="btn-check" type="radio" [id]="'connection-' + type" formControlName="connectionType" [value]="type" />
+              <label class="btn" [for]="'connection-' + type">
+                <i class="ti" [ngClass]="type === 'SERIAL' ? 'ti-plug-connected' : 'ti-world'"></i>
+                {{ type === 'SERIAL' ? 'Serial / COM' : 'TCP / IP' }}
+              </label>
+            }
+          </div>
+
+          <div class="row g-3">
+          @if (isSerial) {
+            <div class="col-12">
+              <label class="form-label">Serial Port</label>
+              <select class="form-select" formControlName="serialPort">
+                <option value="">Select COM port</option>
+                @for (port of serialPorts; track port) {
+                  <option [value]="port">{{ port }}</option>
+                }
+              </select>
+            </div>
+          } @else {
+            <div class="col-md-8">
+              <label class="form-label">TCP Host/IP</label>
+              <input class="form-control" formControlName="tcpHost" placeholder="192.168.1.50" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">TCP Port</label>
+              <input class="form-control" type="number" formControlName="tcpPort" />
+            </div>
+          }
+          </div>
+        </div>
+
+        @if (isSerial) {
+          <div class="form-section">
+            <div class="section-title">
+              <span>Serial Settings</span>
+            </div>
+            <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Baud Rate</label>
+              <input class="form-control" type="number" formControlName="baudRate" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Data Bits</label>
+              <input class="form-control" type="number" formControlName="dataBits" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Parity</label>
+              <select class="form-select" formControlName="parity">
+                <option>NONE</option>
+                <option>ODD</option>
+                <option>EVEN</option>
+                <option>MARK</option>
+                <option>SPACE</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Flow Control</label>
+              <select class="form-select" formControlName="flowControl">
+                <option>NONE</option>
+                <option>RTS_CTS</option>
+                <option>XON_XOFF</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Stop Bits</label>
+              <select class="form-select" formControlName="stopBits">
+                <option>ONE</option>
+                <option>ONE_POINT_FIVE</option>
+                <option>TWO</option>
+              </select>
+            </div>
+            </div>
+          </div>
+        }
+
+        <div class="form-section">
+          <div class="section-title">
+            <span>Dashboard Layout</span>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Indicator Protocol</label>
+              <select class="form-select" formControlName="protocolType" (change)="onProtocolChange()">
+                <option value="TANROADS_ASCII_AXLE">TANROADS ASCII axle / kg-delimited</option>
+                <option value="GENERIC_NUMERIC">Generic numeric / ASCII</option>
+                <option value="METTLER_TOLEDO_CONTINUOUS">Mettler Toledo IND780 continuous</option>
+                <option value="METTLER_TOLEDO_SICS">Mettler Toledo SICS</option>
+                <option value="RINSTRUM_R400">Rinstrum R400 / R420</option>
+                <option value="AVERY_ZM">Avery ZM / ZM510</option>
+                <option value="PRECIA_MOLEN_I30_I35">Precia Molen i30 / i35</option>
+                <option value="YAOHUA_XK3190">Yaohua XK3190 / D2+</option>
+                <option value="SENSOCAR_GENERIC">SENSOCAR SC-A31</option>
+                @if (indicatorProfiles.length) {
+                  <optgroup label="Saved indicator profile protocols">
+                    @for (profile of indicatorProfiles; track profile.uuid) {
+                      <option [value]="'PROFILE:' + profile.uuid">{{ profile.profileName }}{{ profile.model ? ' (' + profile.model + ')' : '' }}</option>
+                    }
+                  </optgroup>
+                }
+              </select>
+              <small class="form-text text-muted">Saved profiles are assigned only when you select one here or in Custom Indicator Profile above.</small>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Reading Type</label>
+              <select class="form-select" formControlName="weightDisplayMode" (change)="onDisplayModeChange()">
+                <option value="SINGLE_CELL">Single-cell dashboard</option>
+                <option value="MULTI_CELL">Multi-cell dashboard</option>
+              </select>
+              <small class="form-text text-muted">Multi-cell mode shows one live card per axle/cell.</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Number of Cells / Axles</label>
+              <input class="form-control" type="number" min="1" max="32" formControlName="cellCount" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit" [disabled]="saving">
+            <i class="ti ti-device-floppy"></i>
+            {{ saving ? 'Saving...' : editingDeviceUuid ? 'Update Device' : 'Register Device' }}
+          </button>
+          @if (editingDeviceUuid) {
+            <button class="btn btn-outline-secondary" type="button" (click)="cancelEdit()">
+              <i class="ti ti-x"></i>
+              Cancel Edit
+            </button>
+          }
+          <button class="btn btn-light" type="button" (click)="cancelEdit()">
+            <i class="ti ti-eraser"></i>
+            Clear
+          </button>
+        </div>
+      </form>
+    </app-card>
+
+    <app-card cardTitle="Registered Devices">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle wbms-table">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Connection</th>
+              <th>Endpoint</th>
+              <th>Status</th>
+              <th class="text-end"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (device of devices; track device.uuid) {
+              <tr>
+                <td>
+                  <strong>{{ device.deviceId }}</strong>
+                  <span>{{ device.name }}</span>
+                  <small class="device-mode">
+                    {{ device.weightDisplayMode === 'MULTI_CELL' ? 'Multi-cell (' + (device.cellCount || 4) + ')' : 'Single-cell' }}
+                  </small>
+                </td>
+                <td>
+                  <span class="connection-badge" [ngClass]="device.connectionType === 'SERIAL' ? 'serial' : 'tcp'">
+                    {{ device.connectionType === 'SERIAL' ? 'Serial' : 'TCP/IP' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="endpoint-text">{{ deviceEndpoint(device) }}</span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="device.active ? 'text-bg-success' : 'text-bg-secondary'">
+                    {{ device.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td class="text-end actions-cell">
+                  <div ngbDropdown placement="bottom-end" container="body" class="action-menu">
+                    <button class="icon-btn dots-btn" type="button" ngbDropdownToggle title="Device actions">
+                      <i class="ti ti-dots-vertical"></i>
+                    </button>
+                    <div ngbDropdownMenu>
+                      <button type="button" ngbDropdownItem (click)="editDevice(device)">
+                        <i class="ti ti-pencil"></i>
+                        Edit
+                      </button>
+                      <button type="button" ngbDropdownItem class="text-danger" (click)="deleteDevice(device)">
+                        <i class="ti ti-trash"></i>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-state">No devices registered yet.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </app-card>
+  </div>
+</div>

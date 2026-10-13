@@ -1,0 +1,39 @@
+<div class="wbms-page">
+  <div class="page-heading"><div><span class="eyebrow">Configuration</span><h2>Indicator Profile Creator</h2><p>Connect, inspect the raw frame, tune extraction, then save a reusable profile.</p></div></div>
+  @if (message) { <div class="alert" [ngClass]="'alert-' + messageType">{{ message }}</div> }
+  <div class="profile-layout">
+    <app-card cardTitle="Connection and Frame Format">
+      <form [formGroup]="profileForm" class="profile-form">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Profile name</label><input class="form-control" formControlName="profileName" placeholder="Yaohua DS3 STX/ETX" /></div>
+          <div class="col-md-3"><label class="form-label">Manufacturer</label><input class="form-control" formControlName="manufacturer" /></div>
+          <div class="col-md-3"><label class="form-label">Model</label><input class="form-control" formControlName="model" /></div>
+          <div class="col-12"><label class="form-label">Communication</label><select class="form-select" formControlName="connectionType"><option value="TCP">Ethernet / TCP</option><option value="SERIAL">Serial / COM</option></select></div>
+          @if (isSerial) { <div class="col-md-4"><label class="form-label">COM port</label><input class="form-control" formControlName="serialPort" /></div><div class="col-md-4"><label class="form-label">Baud rate</label><input class="form-control" type="number" formControlName="baudRate" /></div><div class="col-md-4"><label class="form-label">Data bits</label><input class="form-control" type="number" formControlName="dataBits" /></div> } @else { <div class="col-md-8"><label class="form-label">TCP host / IP</label><input class="form-control" formControlName="tcpHost" /></div><div class="col-md-4"><label class="form-label">TCP port</label><input class="form-control" type="number" formControlName="tcpPort" /></div> }
+          <div class="col-md-3"><label class="form-label">Framing format</label><select class="form-select" formControlName="framingMode" (change)="framingModeChanged()"><option value="STX_ETX">STX / ETX framed</option><option value="UNFRAMED">Unframed / line or stream</option></select></div><div class="col-md-3"><label class="form-label">Start bytes (HEX)</label><input class="form-control" formControlName="startBytes" placeholder="02" [disabled]="profileForm.controls.framingMode.value === 'UNFRAMED'" /></div><div class="col-md-3"><label class="form-label">End bytes (HEX)</label><input class="form-control" formControlName="endBytes" placeholder="03" [disabled]="profileForm.controls.framingMode.value === 'UNFRAMED'" /></div><div class="col-md-3"><label class="form-label">Separator</label><input class="form-control" formControlName="separator" placeholder="SPACE, 049, or comma" /></div><div class="col-md-3"><label class="form-label">Scale count</label><input class="form-control" type="number" min="1" max="4" formControlName="scaleCount" /></div>
+          <div class="col-md-3"><label class="form-label">String length</label><input class="form-control" type="number" min="0" formControlName="stringLength" /></div><div class="col-md-3"><label class="form-label">Remove beginning</label><div class="input-group"><button class="btn btn-outline-secondary" type="button" (click)="adjustCharacterCount('removeBeginning', -1)">-</button><input class="form-control" type="number" min="0" formControlName="removeBeginning" /><button class="btn btn-outline-secondary" type="button" (click)="adjustCharacterCount('removeBeginning', 1)">+</button></div></div><div class="col-md-3"><label class="form-label">Remove end</label><div class="input-group"><button class="btn btn-outline-secondary" type="button" (click)="adjustCharacterCount('removeEnd', -1)">-</button><input class="form-control" type="number" min="0" formControlName="removeEnd" /><button class="btn btn-outline-secondary" type="button" (click)="adjustCharacterCount('removeEnd', 1)">+</button></div></div>
+        </div>
+        <div class="action-bar"><button class="btn btn-success" type="button" (click)="test()" [disabled]="testing">{{ testing ? 'Testing...' : 'Connect and Test' }}</button><button class="btn btn-outline-danger" type="button" (click)="stopTest()" [disabled]="!testing">Stop</button><button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving || !result?.parsedWeightKg">{{ saving ? 'Saving...' : editingUuid ? 'Update Profile' : 'Save Profile' }}</button>@if (editingUuid) { <button class="btn btn-outline-secondary" type="button" (click)="cancelEdit()">Cancel Edit</button> }</div>
+      </form>
+    </app-card>
+    <div class="result-stack">
+      <app-card cardTitle="ASCII Raw Data"><pre>{{ result?.sampleData || 'Waiting for data...' }}</pre></app-card>
+      <app-card cardTitle="HEX Raw Data"><pre>{{ result?.rawHex || 'Waiting for data...' }}</pre></app-card>
+      <app-card cardTitle="Parser Input"><pre>{{ result?.parserInput || 'Waiting for data...' }}</pre></app-card>
+      <app-card cardTitle="Parsed Weight">
+        @if (result?.parsedCellWeightsKg?.length) {
+          <div class="cell-readings">
+            @for (weight of result?.parsedCellWeightsKg; track $index) {
+              <div class="cell-reading"><span>Axle {{ $index + 1 }}</span><strong>{{ weight | number: '1.0-2' }} kg</strong></div>
+            }
+          </div>
+          <div class="gvm-result"><span>GVM total</span><strong>{{ result?.parsedWeightKg | number: '1.0-2' }} kg</strong></div>
+        } @else {
+          <div class="weight-result">{{ result?.parsedWeightKg ?? '--' }} <small>kg</small></div>
+        }
+        <p>{{ result?.message || 'The parsed value appears here after the frame matches.' }}</p>
+      </app-card>
+    </div>
+  </div>
+  <app-card cardTitle="Saved Indicator Profiles"><div class="saved-profiles">@for (profile of profiles; track profile.uuid) { <div class="profile-item"><div class="profile-details"><strong>{{ profile.profileName }}</strong><span>{{ profile.manufacturer || 'Custom' }} {{ profile.model || '' }} · {{ profile.connectionType }} · {{ profile.startBytes || '--' }} to {{ profile.endBytes || '--' }}</span></div><div class="profile-actions"><button class="btn btn-sm btn-outline-primary" type="button" (click)="editProfile(profile)">Edit</button><button class="btn btn-sm btn-outline-danger" type="button" (click)="deleteProfile(profile)">Delete</button></div></div> } @empty { <span>No custom profiles saved yet.</span> }</div></app-card>
+</div>
