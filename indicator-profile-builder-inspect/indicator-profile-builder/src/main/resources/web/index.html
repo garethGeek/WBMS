@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Indicator Profile Builder</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="top">
+  <h1>Indicator Profile Builder</h1>
+  <p class="intro">
+    Technician tool for discovering, capturing, and validating a real weighbridge indicator's
+    communication protocol, and turning it into a saved, versioned profile. This does not affect the
+    live production weighing connection -- profiles built here are not used anywhere until an
+    administrator explicitly assigns an APPROVED profile to a station in a future, separate step.
+  </p>
+  <div class="bar">
+    <span>Connection: <span id="conn-pill" class="pill DISCONNECTED">DISCONNECTED</span></span>
+    <span id="conn-detail" class="muted small"></span>
+    <span style="flex:1"></span>
+    <label for="technician">Technician name</label>
+    <input type="text" id="technician" style="width:200px" placeholder="recorded on saves and samples">
+    <span id="data-dir" class="muted small"></span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== Profiles ===================== -->
+  <section class="col-profiles">
+    <div class="card">
+      <h2>Profiles</h2>
+      <div class="body">
+        <button type="button" class="primary" id="btn-new" style="width:100%">New Profile</button>
+        <table id="profile-list" style="margin-top:10px">
+          <thead><tr><th>Name</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="muted small" id="profile-list-empty" hidden>No profiles yet. Click New Profile, fill in the indicator information, then Save &amp; Connect.</p>
+        <hr>
+        <div class="field">
+          <label for="import-json">Import profile (paste JSON)</label>
+          <textarea id="import-json" rows="4" placeholder="Paste a profile JSON exported by this tool or by the main system"></textarea>
+        </div>
+        <div class="actions">
+          <button type="button" class="sm" id="btn-import">Import as Draft</button>
+          <label class="sm" style="align-self:center"><input type="file" id="import-file" accept=".json,application/json" style="width:190px"></label>
+        </div>
+        <hr>
+        <a href="/api/profiles/export.csv" class="small">Export All (CSV)</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Indicator Information ===================== -->
+  <section class="col-form">
+    <div class="card">
+      <h2>Indicator Information</h2>
+      <div class="body">
+        <div class="notice" id="readonly-notice" hidden>
+          This profile is APPROVED or DEPLOYED and cannot be edited in place. Use <strong>Create New Version</strong> to make changes.
+        </div>
+        <form id="profile-form" onsubmit="return false;">
+          <div class="field"><label>Profile Name</label><input type="text" id="f-name" required placeholder="e.g. Avery ZM301 - Kibaha lane 1"></div>
+          <div class="row">
+            <div class="field"><label>Manufacturer</label><input type="text" id="f-manufacturer"></div>
+            <div class="field"><label>Model</label><input type="text" id="f-model"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Build</label><input type="text" id="f-buildVersion"></div>
+            <div class="field"><label>Firmware</label><input type="text" id="f-firmwareVersion"></div>
+            <div class="field"><label>Software</label><input type="text" id="f-softwareVersion"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Protocol name</label><input type="text" id="f-protocolName"></div>
+            <div class="field"><label>Protocol version</label><input type="text" id="f-protocolVersion"></div>
+          </div>
+          <hr>
+          <div class="field">
+            <label>Communication Type</label>
+            <select id="f-connectionType">
+              <option value="TCP">TCP/IP</option>
+              <option value="SERIAL">Serial / COM</option>
+            </select>
+          </div>
+          <div id="tcp-fields" class="row">
+            <div class="field" style="flex:2"><label>IP Address / Host</label><input type="text" id="f-tcpHost" placeholder="192.168.1.50"></div>
+            <div class="field"><label>TCP Port</label><input type="number" id="f-tcpPort" placeholder="4001"></div>
+          </div>
+          <div id="serial-fields" hidden>
+            <div class="row">
+              <div class="field" style="flex:2">
+                <label>COM Port</label>
+                <div style="display:flex;gap:6px">
+                  <select id="f-serialPortSelect" style="flex:1"><option value="">-- detected ports --</option></select>
+                  <button type="button" class="sm" id="btn-refresh-ports" title="Re-scan COM ports">Rescan</button>
+                </div>
+                <input type="text" id="f-serialPort" placeholder="COM3" style="margin-top:6px">
+              </div>
+              <div class="field"><label>Baud</label>
+                <select id="f-baudRate">
+                  <option>1200</option><option>2400</option><option>4800</option><option selected>9600</option>
+                  <option>19200</option><option>38400</option><option>57600</option><option>115200</option>
+                </select>
+              </div>
+              <div class="field"><label>Data bits</label>
+                <select id="f-dataBits"><option>7</option><option selected>8</option></select>
+              </div>
+              <div class="field"><label>Parity</label>
+                <select id="f-parity"><option value="NONE">None</option><option value="ODD">Odd</option><option value="EVEN">Even</option><option value="MARK">Mark</option><option value="SPACE">Space</option></select>
+              </div>
+              <div class="field"><label>Stop bits</label>
+                <select id="f-stopBits"><option selected>1</option><option>2</option></select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="field"><label>Flow control</label>
+                <select id="f-flowControl"><option value="NONE">None</option><option value="RTS_CTS">RTS/CTS (hardware)</option><option value="XON_XOFF">XON/XOFF (software)</option></select>
+              </div>
+            </div>
+          </div>
+          <details>
+            <summary class="small">Connection timeouts and buffer</summary>
+            <div class="row">
+              <div class="field"><label>Connect timeout (ms)</label><input type="number" id="f-connectTimeoutMs" value="10000"></div>
+              <div class="field"><label>Read timeout (ms)</label><input type="number" id="f-readTimeoutMs" value="5000"></div>
+              <div class="field"><label>Reconnect interval (ms)</label><input type="number" id="f-reconnectIntervalMs" value="5000"></div>
+              <div class="field"><label>Max buffer (bytes)</label><input type="number" id="f-maxBufferBytes" value="4096"></div>
+            </div>
+          </details>
+          <hr>
+          <div class="row">
+            <div class="field">
+              <label>Read Mode</label>
+              <select id="f-readMode">
+                <option value="CONTINUOUS">Continuous stream</option>
+                <option value="COMMAND_QUERY">Command / Query</option>
+              </select>
+            </div>
+            <div class="field" id="command-field" hidden>
+              <label>Query Command</label>
+              <input type="text" id="f-queryCommand" placeholder="W\r">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Message Framing</label>
+              <select id="f-framingMode">
+                <option value="DELIMITER">Delimiter-terminated</option>
+                <option value="FIXED_LENGTH">Fixed length</option>
+              </select>
+            </div>
+            <div class="field" id="delimiter-field">
+              <label>Delimiter</label>
+              <input type="text" id="f-messageDelimiter" value="\r\n" placeholder="\r\n">
+            </div>
+            <div class="field" id="fixedlength-field" hidden>
+              <label>Fixed message length (bytes)</label>
+              <input type="number" id="f-fixedMessageLength">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Extraction Rule</label>
+              <select id="f-extractionRule">
+                <option value="FIRST_NUMBER">First number found</option>
+                <option value="DELIMITED_TOKENS">Delimited tokens</option>
+                <option value="FIXED_POSITION">Fixed position</option>
+                <option value="REGEX">Regular expression</option>
+                <option value="STATUS_TOKEN">Status + value (regex, 2 groups)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Extraction pattern</label>
+              <input type="text" id="f-extractionPattern" placeholder="separator, offset,length, or regex">
+              <div class="muted small" id="pattern-hint"></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field" style="flex:0 1 110px"><label>Unit</label><input type="text" id="f-weightUnit" value="kg"></div>
+            <div class="field" style="flex:2">
+              <label>Stability Rule</label>
+              <select id="f-stabilityRule">
+                <option value="NONE">None (accept immediately)</option>
+                <option value="STATUS_TOKEN">Trust device status token</option>
+                <option value="CONSECUTIVE_MATCH">N consecutive matching readings</option>
+                <option value="DURATION">Stable for a duration</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" id="stability-extra">
+            <div class="field"><label>Stable status token</label><input type="text" id="f-stableStatusToken" placeholder="ST"></div>
+            <div class="field"><label>Required consecutive matches</label><input type="number" id="f-requiredConsecutiveMatches"></div>
+            <div class="field"><label>Tolerance</label><input type="text" id="f-stabilityTolerance"></div>
+            <div class="field"><label>Stable-for duration (ms)</label><input type="number" id="f-stabilityDurationMs"></div>
+          </div>
+          <div class="field">
+            <label>Technician Notes</label>
+            <textarea id="f-technicianNotes" rows="3" placeholder="Anything a future technician needs to know: quirks, warm-up behavior, wiring notes, etc."></textarea>
+          </div>
+          <div class="actions">
+            <button type="button" class="primary" id="btn-save">Save Draft</button>
+            <button type="button" id="btn-new-version" hidden>Create New Version</button>
+            <button type="button" class="success" id="btn-connect">Save &amp; Connect</button>
+            <button type="button" id="btn-disconnect" disabled>Disconnect</button>
+            <button type="button" class="warn" id="btn-apply-rules" disabled title="Re-parse the live stream with the framing / extraction / stability settings above, without reconnecting">Apply Rules to Live Stream</button>
+            <span style="flex:1"></span>
+            <button type="button" class="danger" id="btn-delete" hidden>Delete</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Profile Lifecycle</h2>
+      <div class="body">
+        <p>Current status: <span id="status-pill" class="pill">-</span> &middot; Version <strong id="version-label">-</strong>
+          <span class="muted small" id="lifecycle-detail"></span></p>
+        <div class="checkbox">
+          <input type="checkbox" id="confirm-correct">
+          <label for="confirm-correct">I have compared RAW vs. PARSED data and confirm the parse result is <strong>CORRECT</strong> (required to reach VALIDATED)</label>
+        </div>
+        <div class="actions">
+          <button type="button" class="warn" id="btn-advance">Advance Status</button>
+          <button type="button" id="btn-demote">Send back to Draft</button>
+          <button type="button" id="btn-export">Export JSON (download)</button>
+          <button type="button" id="btn-copy-json">Copy JSON</button>
+          <a href="/api/profiles/export.csv"><button type="button">Export All (CSV)</button></a>
+        </div>
+        <p class="muted small" id="file-label"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Capture Evidence</h2>
+      <div class="body">
+        <p class="muted small">
+          Save the most recently received raw message as labeled evidence -- station, indicator, and
+          connection details are captured automatically from this profile; you only need to record
+          where/what this specific sample was.
+        </p>
+        <div class="row">
+          <div class="field"><label>Station name</label><input type="text" id="s-stationName"></div>
+          <div class="field"><label>Station code</label><input type="text" id="s-stationCode"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Location</label><input type="text" id="s-location"></div>
+          <div class="field"><label>Lane</label><input type="text" id="s-lane"></div>
+        </div>
+        <div class="field">
+          <label>Label</label>
+          <select id="s-label">
+            <option value="STABLE_SAMPLE">Stable sample</option>
+            <option value="UNSTABLE_SAMPLE">Unstable sample</option>
+            <option value="STARTUP_SAMPLE">Startup sample</option>
+            <option value="ERROR_SAMPLE">Error sample</option>
+            <option value="UNKNOWN_SAMPLE" selected>Unknown (not yet determined)</option>
+          </select>
+          <div class="muted small">Only mark STABLE if the indicator itself, or configured validation logic, actually supports that conclusion -- never guess.</div>
+        </div>
+        <div class="field"><label>Notes</label><input type="text" id="s-notes"></div>
+        <button type="button" class="primary" id="btn-save-sample">Save Sample as Evidence</button>
+        <hr>
+        <table id="sample-list">
+          <thead><tr><th>Captured</th><th>Label</th><th>Notes</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Live diagnostics ===================== -->
+  <section class="col-live">
+    <div class="card">
+      <h2>Raw Data</h2>
+      <div class="body">
+        <p>Connection: <strong id="raw-conn">DISCONNECTED</strong> <span class="muted small" id="raw-count"></span></p>
+        <label class="small muted">ASCII (control bytes shown as \r \n &lt;STX&gt; ...)</label>
+        <pre class="raw" id="raw-ascii"></pre>
+        <label class="small muted">HEX</label>
+        <pre class="raw hex" id="raw-hex"></pre>
+        <div class="actions">
+          <button type="button" class="sm" id="btn-clear-raw">Clear</button>
+          <button type="button" class="sm" id="btn-pause-raw">Pause</button>
+          <span style="flex:1"></span>
+          <input type="text" id="send-text" placeholder="send bytes, e.g. W\r" style="width:150px" disabled>
+          <button type="button" class="sm" id="btn-send" disabled>Send</button>
+          <button type="button" class="sm" id="btn-request-reading" disabled title="Send the configured query command once">Request reading</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Parser Preview</h2>
+      <div class="body">
+        <div class="preview">
+          <span class="weight" id="pv-weight">-</span><span class="unit" id="pv-unit"></span>
+          <span>Status: <span class="stab" id="pv-status">-</span></span>
+        </div>
+        <table class="kv small" style="margin-top:6px">
+          <tr><td>Last message</td><td><code id="pv-raw">-</code></td></tr>
+          <tr><td>Status token seen</td><td id="pv-token">-</td></tr>
+          <tr><td>All values (multi-deck)</td><td id="pv-values">-</td></tr>
+          <tr><td>Rejection reason</td><td id="pv-reason">-</td></tr>
+        </table>
+        <hr>
+        <p class="small"><strong>Test rules offline.</strong> Re-run the framing / extraction / stability settings in the form against the raw data captured so far (or against pasted text) without touching the live connection.</p>
+        <textarea id="replay-text" rows="2" placeholder="Optional: paste raw text here, e.g. ST,GS,  12340 kg\r\n  (leave empty to use the captured stream)"></textarea>
+        <div class="actions">
+          <button type="button" id="btn-replay">Test rules against captured data</button>
+          <span class="muted small" id="replay-summary"></span>
+        </div>
+        <div class="results" id="replay-results" hidden>
+          <table><thead><tr><th>Message</th><th>Weight</th><th>Status</th><th>Reason</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Validation</h2>
+      <div class="body">
+        <table class="kv">
+          <tr><td>Messages received</td><td id="st-received">0</td></tr>
+          <tr><td>Valid</td><td id="st-valid">0</td></tr>
+          <tr><td>Invalid</td><td id="st-invalid">0</td></tr>
+          <tr><td>Stable</td><td id="st-stable">0</td></tr>
+          <tr><td>Unstable</td><td id="st-unstable">0</td></tr>
+          <tr><td>Comm. errors</td><td id="st-errors">0</td></tr>
+          <tr><td>Bytes waiting for a delimiter</td><td id="st-pending">0</td></tr>
+        </table>
+        <p class="muted small" id="validation-hint"></p>
+        <button type="button" class="sm" id="btn-reset-stats">Reset Counters</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toasts"></div>
+<div id="modal-root"></div>
+<script src="/app.js"></script>
+</body>
+</html>
